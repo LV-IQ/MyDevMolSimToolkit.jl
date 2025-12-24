@@ -202,8 +202,8 @@ end
     dist(r) = r
 
     Dict = OrderedCollections.OrderedDict(
-        "a" => Perturbation(simulation.atoms, c1, c2, dist), 
-        "b" => Perturbation(simulation.atoms, c11, c12, dist)
+        "a" => Perturbation(simulation.atoms, c1, c2, dist, [1]), 
+        "b" => Perturbation(simulation.atoms, c11, c12, dist, [1])
     )
 
     input = SystemPerturbations(g1, 5, g2, 4, Dict)
@@ -216,7 +216,7 @@ end
                     cutoff = 15.0,
             )
 
-    @test res["a"].energy ≈ [
+    @test res["a"].energies[1] ≈ [
         6.568418,
         6.00216,
         6.064767,
@@ -230,7 +230,7 @@ end
     ] atol = 1.e-3
 
 
-    @test res["b"].energy ≈ [
+    @test res["b"].energies[1] ≈ [
         27.963684,
         24.046826,
         26.315003,
