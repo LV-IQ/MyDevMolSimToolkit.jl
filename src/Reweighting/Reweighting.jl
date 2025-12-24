@@ -265,8 +265,8 @@ end
     dist(r) = r
 
     Dict = OrderedCollections.OrderedDict(
-        "a" => Perturbation(simulation.atoms, c1, c2, dist,[1]), 
-        "b" => Perturbation(simulation.atoms, c11, c12, dist, [-1,2])
+        "a" => Perturbation(simulation.atoms, c1, c2, dist,[1]; one_gp=true), 
+        "b" => Perturbation(simulation.atoms, c11, c12, dist, [-1,2]; one_gp=true)
     )
 
     input = SystemPerturbationsOneGroup(g1, 3, Dict)
@@ -359,8 +359,8 @@ end
     dist(r) = r
 
     Dict = OrderedCollections.OrderedDict(
-        "a" => Perturbation(simulation.atoms, c1, c2, dist, [1]), 
-        "b" => Perturbation(simulation.atoms, c11, c12, dist, [1])
+        "a" => Perturbation(simulation.atoms, c1, c2, dist, [1]; one_gp=true), 
+        "b" => Perturbation(simulation.atoms, c11, c12, dist, [1]; one_gp=true)
     )
 
     input = SystemPerturbationsOneGroup(g1, 3, Dict)

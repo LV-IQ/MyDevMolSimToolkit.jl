@@ -63,12 +63,13 @@ function Perturbation(
     subgroup1::Union{String, Function}, 
     subgroup2::Union{String, Function}, 
     perturbation_function::Function, 
-    scaling::Vector{<:Real}
+    scaling::Vector{<:Real};
+    one_gp::Bool = false
 )
 
     v1 = PDBTools.selindex(atoms, subgroup1)
     v2 = PDBTools.selindex(atoms, subgroup2)
-    if v1 == v2 || (v1 != v2 && isdisjoint(v1, v2)) 
+    if one_gp == false || v1 == v2 || (v1 != v2 && isdisjoint(v1, v2))
         return Perturbation(v1, v2, perturbation_function, scaling)
     else
         return error(
