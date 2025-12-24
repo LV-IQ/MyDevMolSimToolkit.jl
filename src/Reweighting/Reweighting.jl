@@ -2,7 +2,7 @@ module Reweighting
 
 using ProgressMeter
 using LinearAlgebra: diag
-using CellListMap: ParticleSystem, map_pairwise, map_pairwise!
+using CellListMap
 using ..MolSimToolkit: Simulation, positions, unitcell
 using ..MolSimToolkit.MolecularMinimumDistances
 import OrderedCollections
@@ -35,7 +35,7 @@ end #Module Reweighting
 
     dist(r) = r
 
-    Dict = OrderedCollections.OrderedDict(1 => Perturbation(simulation.atoms, c1, c2, dist))
+    Dict = OrderedCollections.OrderedDict(1 => Perturbation(simulation.atoms, c1, c2, dist, [1]))
 
     input = SystemPerturbations(g1, 1, g2, 3, Dict)
 
@@ -46,7 +46,8 @@ end #Module Reweighting
                     T = 1.0,
                     cutoff = 12.0,
             )
-    @test res[1].energy ≈ [
+
+    @test res[1].energies[1] ≈ [
         2.66700,
         0.0,
         0.0,
@@ -91,7 +92,7 @@ end
 
     dist(r) = r
 
-    Dict = OrderedCollections.OrderedDict(1 => Perturbation(simulation.atoms, c1, c2, dist))
+    Dict = OrderedCollections.OrderedDict(1 => Perturbation(simulation.atoms, c1, c2, dist, [-2, -1, 0, 1, 2]))
 
     input = SystemPerturbations(g1, 1, g2, 3, Dict)
 
@@ -102,17 +103,12 @@ end
                     T = 1.0,
                     cutoff = 12.0,
             )
-    @test res[1].energy ≈ [
-        5.450897,
-        6.018059,
-        6.05581,
-        5.926243,
-        5.067425,
-        5.816867,
-        5.229802,
-        5.382748,
-        6.127764,
-        6.212621    
+    @test res[1].energies ≈ [
+        -2*[5.450897,6.018059,6.05581,5.926243,5.067425,5.816867,5.229802,5.382748,6.127764, 6.212621],
+        -[5.450897,6.018059,6.05581,5.926243,5.067425,5.816867,5.229802,5.382748,6.127764, 6.212621],
+        zeros(10),
+        [5.450897,6.018059,6.05581,5.926243,5.067425,5.816867,5.229802,5.382748,6.127764, 6.212621],
+        2*[5.450897,6.018059,6.05581,5.926243,5.067425,5.816867,5.229802,5.382748,6.127764, 6.212621],
     ] atol = 1.e-4
 end
 
@@ -139,8 +135,8 @@ end
     dist(r) = r
 
     Dict = OrderedCollections.OrderedDict(
-        "a" => Perturbation(simulation.atoms, c1, c2, dist), 
-        "b" => Perturbation(simulation.atoms, c11, c12, dist)
+        "a" => Perturbation(simulation.atoms, c1, c2, dist, [-1, 0, 1]), 
+        "b" => Perturbation(simulation.atoms, c11, c12, dist, [1.0])
     )
 
     input = SystemPerturbations(g1, 5, g2, 4, Dict)
@@ -153,21 +149,23 @@ end
                     cutoff = 15.0,
             )
 
-    @test res["a"].energy ≈ [
-        6.568418,
-        0,
-        6.064767,
-        0,
-        0,
-        0,
-        9.888358,
-        0,
-        7.498538,
-        0     
+    @test res["a"].energies ≈ [
+        -[6.568418, 0, 6.064767, 0, 0, 0, 9.888358, 0, 7.498538, 0],
+        zeros(10),
+        [6.568418, 0, 6.064767, 0, 0, 0, 9.888358, 0, 7.498538, 0],
     ] atol = 1.e-3
 
+    @test res["a"].probabilities ≈ [
+        [0.031440, 4.41428e-5, 0.0190000, 4.41428e-5, 4.41428e-5, 4.41428e-5, 0.869599, 4.41428e-5, 0.079695, 4.41428e-5],
+        ones(10)/10,
+        [0.000234, 0.166546, 0.000387, 0.166546, 0.166546, 0.166546, 8.4542e-6, 0.166546, 9.224899e-5, 0.166546],
+    ] atol = 1.e-5
 
-    @test res["b"].energy ≈ [
+    @test res["a"].distances ≈ [
+        1, 0, 1, 0, 0, 0, 1, 0, 1, 0,
+    ] atol = 1.e-1
+
+    @test res["b"].energies[1] ≈ [
         6.568418,
         5.697282,
         6.064767,
@@ -254,11 +252,7 @@ end
 
     simulation = Simulation("$testdir/Testing_reweighting.pdb", "$testdir/Testing_reweighting_10_frames_trajectory.xtc")
 
-    g1 = PDBTools.selindex(simulation.atoms, at -> at.resname == "SOL" && at.residue in [100,120,140,160,180] && at.name != "MW")
-
-#    c1 = at -> at.name in ["HW1", "HW2"]
-
-#    c2 = at -> at.name in ["O"]
+    g1 = PDBTools.selindex(simulation.atoms, at -> at.resname == "SOL" && at.residue in [100,120,140] && at.name != "MW")
 
     c1 = at -> at = true
 
@@ -266,13 +260,13 @@ end
 
     c11 = at -> at.name in ["HW1", "HW2"]
 
-    c12 = at -> true
+    c12 = at -> at.name in ["OW"]
 
     dist(r) = r
 
     Dict = OrderedCollections.OrderedDict(
-        "a" => Perturbation(simulation.atoms, c1, c2, dist), 
-        "b" => Perturbation(simulation.atoms, c11, c12, dist)
+        "a" => Perturbation(simulation.atoms, c1, c2, dist,[1]), 
+        "b" => Perturbation(simulation.atoms, c11, c12, dist, [-1,2])
     )
 
     input = SystemPerturbationsOneGroup(g1, 3, Dict)
@@ -285,57 +279,62 @@ end
                     cutoff = 27.0,
             )
 
-    @test res["a"].energy ≈ [
-        136.05554345097482, 
-        181.0981720027807, 
-        152.37416783247951, 
-        87.58817228480571, 
-        76.6141583934713, 
-        179.4770542337321, 
-        48.39516109621037, 
-        189.14883805230835, 
-        110.43236754714565,
-        63.52665469980029
+    @test res["a"].energies[1] ≈ [
+        33.45344, 
+        54.10159, 
+        16.77879, 
+        49.15888, 
+        17.86500, 
+        67.33274, 
+        48.39516, 
+        24.73005, 
+        20.73088, 
+        0.0
     ] atol = 1.e-3
 
-    @test res["a"].probability ≈ [
-    8.503144223910598e-39
-    2.332461665989855e-58
-    6.958105738162862e-46
-    9.521193580872743e-18
-    5.554501296481423e-13
-    1.1799321005648997e-57
-    0.9999997317889862
-    7.437974307845558e-62
-    1.141782675765464e-27
-    2.682104584745969e-7
-    ] atol = 1.e-3
+    @test res["a"].probabilities[1] ≈ [
+        2.96043532e-15
+        3.19137596e-24
+        5.16492547e-8
+        4.47269872e-22
+        1.7431271e-8
+        5.7248292e-30
+        9.5995092e-22
+        1.8191801e-11
+        9.9241468e-10
+        0.9999999
+    ] atol = 1.e-7
 
 
     @test res["a"].distances ≈ [
-        7.0, 
-        9.0, 
-        7.0, 
-        4.0, 
-        4.0, 
-        8.0, 
-        2.0, 
-        8.0, 
-        5.0, 
-        4.0
+        2,
+        3,
+        1,
+        2,
+        1,
+        3,
+        2,
+        1,
+        1,
+        0
     ] atol = 1.e-3
 
-    @test res["b"].energy ≈ [
-        129.7620583116274, 
-        114.46581597869775, 
-        124.40288124305596, 
-        87.58817228480571, 
-        68.21332921937714, 
-        121.37077327618356, 
-        22.697185701332867, 
-        176.103612512724, 
-        101.97801390530358, 
-        45.92474904398998    
+    @test res["b"].energies ≈ [
+        -[12.58697, 54.10159, 16.778796108272978, 0, 0, 0, 0, 0, 0, 0],
+        [25.17394, 108.20318, 33.557592216545956, 0, 0, 0, 0, 0, 0, 0]
+    ] atol = 1.e-4
+
+    @test res["b"].distances ≈ [
+        1, 
+        3, 
+        1, 
+        0, 
+        0, 
+        0, 
+        0, 
+        0, 
+        0, 
+        0    
     ] atol = 1.e-4
 end
 
@@ -360,8 +359,8 @@ end
     dist(r) = r
 
     Dict = OrderedCollections.OrderedDict(
-        "a" => Perturbation(simulation.atoms, c1, c2, dist), 
-        "b" => Perturbation(simulation.atoms, c11, c12, dist)
+        "a" => Perturbation(simulation.atoms, c1, c2, dist, [1]), 
+        "b" => Perturbation(simulation.atoms, c11, c12, dist, [1])
     )
 
     input = SystemPerturbationsOneGroup(g1, 3, Dict)
@@ -374,55 +373,55 @@ end
                     cutoff = 27.0,
             )
 
-    @test res["a"].energy ≈ [
-        316.95709175011706, 
-        510.30880475614055, 
-        155.54282197934864, 
-        293.78717961659873, 
-        168.9915457063237, 
-        630.7433027192693, 
-        450.78141452462495, 
-        231.56648096974462, 
-        189.66385308799272, 
+    @test res["a"].energies[1] ≈ [
+        316.9570, 
+        510.3088, 
+        155.5428, 
+        293.7871, 
+        168.9915, 
+        630.7433, 
+        450.7814, 
+        231.5664, 
+        189.6638, 
         0.0
     ] atol = 1.e-3
 
     @test res["a"].distances == [
-        18.0, 
-        27.0, 
-        9.0, 
-        12.0, 
-        9.0, 
-        27.0, 
-        18.0, 
-        9.0, 
-        9.0, 
-        0.0
+        18, 
+        27, 
+        9, 
+        12, 
+        9, 
+        27, 
+        18, 
+        9, 
+        9, 
+        0
     ]
 
-    @test res["b"].energy ≈ [ #VIZINHOS MAIS PRÓXIMOS DO MolSimToolkit NÃO SERVIU PARA TESTAR OS RESULTADOS!!!!!!! FALAR COM LEANDRO
-        140.8590610379914, 
-        226.09738285953762, 
-        68.69849119519456, 
-        148.9806945785561, 
-        75.37515540697854, 
-        280.14468842660045, 
-        199.80533848971726, 
-        102.94000222371807, 
-        84.81409883203321,
+    @test res["b"].energies[1] ≈ [ 
+        140.8590, 
+        226.0973, 
+        68.6984, 
+        148.9806, 
+        75.3751, 
+        280.1446, 
+        199.8053, 
+        102.9400, 
+        84.8140,
         0.0
     ] atol = 1.e-3
 
-        @test res["b"].distances == [
-        8.0, 
-        12.0, 
-        4.0, 
-        6.0, 
-        4.0, 
-        12.0, 
-        8.0, 
-        4.0, 
-        4.0, 
-        0.0
+    @test res["b"].distances == [
+        8, 
+        12, 
+        4, 
+        6, 
+        4, 
+        12, 
+        8, 
+        4, 
+        4, 
+        0
     ]
 end
