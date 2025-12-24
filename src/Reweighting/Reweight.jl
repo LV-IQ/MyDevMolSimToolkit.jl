@@ -196,23 +196,22 @@ function Base.show(io::IO, mime::MIME"text/plain", res::ReweightResults)
     FRAME WEIGHTS
     -------------
 
-    Average probability = $(Statistics.mean(res.probability))
-    standard deviation = $(Statistics.std(res.probability))
-
-    -------------------------------------------
-    FRAME WEIGHTS RELATIVE TO THE ORIGINAL ONES
-    -------------------------------------------
-
-    Average probability = $(Statistics.mean(res.relative_probability))
-    standard deviation = $(Statistics.std(res.relative_probability))
+    Average probability = $(Statistics.mean.(res.probabilities))
+    standard deviation = $(Statistics.std.(res.probabilities)/sqrt(first(res.probabilities)))
 
     ----------------------------------
-    COMPUTED ENERGY AFTER PERTURBATION
+    AVERAGE PERTURBED ENERGIES
     ----------------------------------
 
-    Average energy = $(Statistics.mean(res.energy))
-    standard deviation = $(Statistics.std(res.energy))
+    Average Energies = $(Statistics.mean.(res.energies))
+    Standard Deviations = $(Statistics.std.(res.energies)/sqrt(first(res.energies)))
+
+    -------------------------------------------
+    ENTROPY LOSS DUE TO REWEIGHTING
+    -------------------------------------------
     
+    Entropy = $(res.entropy_diff)
+
     """)
 end
 
