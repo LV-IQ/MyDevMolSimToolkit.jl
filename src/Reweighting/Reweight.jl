@@ -197,14 +197,14 @@ function Base.show(io::IO, mime::MIME"text/plain", res::ReweightResults)
     -------------
 
     Average probability = $(Statistics.mean.(res.probabilities))
-    standard deviation = $(Statistics.std.(res.probabilities)/sqrt(first(res.probabilities)))
+    standard deviation = $(Statistics.std.(res.probabilities)/sqrt(length(first(res.probabilities))))
 
     ----------------------------------
     AVERAGE PERTURBED ENERGIES
     ----------------------------------
 
     Average Energies = $(Statistics.mean.(res.energies))
-    Standard Deviations = $(Statistics.std.(res.energies)/sqrt(first(res.energies)))
+    Standard Deviations = $(Statistics.std.(res.energies)/sqrt(length(first(res.energies))))
 
     -------------------------------------------
     ENTROPY LOSS DUE TO REWEIGHTING
