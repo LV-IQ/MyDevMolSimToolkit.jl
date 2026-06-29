@@ -312,7 +312,7 @@ function reweight(
                                 end
                             end
                         end
-                        if δ_idx == 1
+                        if δ_idx ==1
                             raw_output[pk][4][iframe] += distance_count
                         end
                     end
