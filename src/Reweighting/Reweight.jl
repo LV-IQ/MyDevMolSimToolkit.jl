@@ -184,66 +184,6 @@ julia> sum_of_dist.energy
 This result is the energy difference between the  perturbed frame and the original one. In this case, it is the sum of distances between the reffered atoms
 ```
 """
-function reweight(
-    simulation::Simulation, 
-    f_perturbation::Function, 
-    group_1::AbstractVector{<:Integer}; 
-    cutoff::Real = 12.0, 
-    k::Real = 1.0, 
-    T::Real = 1.0
-)
-    prob_vec = zeros(length(simulation))
-    prob_rel_vec = zeros(length(simulation))
-    energy_vec = zeros(length(simulation))
-    for (iframe, frame) in enumerate(simulation)
-        coordinates = positions(frame)
-        first_coors = coordinates[group_1]
-        system = ParticleSystem(
-            xpositions = first_coors,
-            unitcell = unitcell(frame),
-            cutoff = cutoff,
-            output = 0.0,
-            output_name = :total_energy
-        )
-        energy_vec[iframe] = map_pairwise!((x, y, i, j, d2, total_energy) -> total_energy + f_perturbation(i, j, sqrt(d2)/10), system)
-    end
-    @. prob_rel_vec = exp(-(energy_vec)/k*T)
-    prob_vec = prob_rel_vec/sum(prob_rel_vec)
-    output = ReweightResults(prob_vec, prob_rel_vec, energy_vec)
-    return output
-end
-function reweight(
-    simulation::Simulation, 
-    f_perturbation::Function, 
-    group_1::AbstractVector{<:Integer}, 
-    group_2::AbstractVector{<:Integer};     
-    cutoff::Real = 12.0, 
-    k::Real = 1.0, 
-    T::Real = 1.0
-)
-    prob_vec = zeros(length(simulation))
-    prob_rel_vec = zeros(length(simulation))
-    energy_vec = zeros(length(simulation))
-    for (iframe, frame) in enumerate(simulation)
-        coordinates = positions(frame)
-        uc = unitcell(frame)
-        first_coors = coordinates[group_1]
-        second_coors = coordinates[group_2]
-        system = ParticleSystem(
-            xpositions = first_coors,
-            ypositions = second_coors,
-            unitcell = uc.orthorhombic ? diag(uc.matrix) : uc.matrix,
-            cutoff = cutoff,
-            output = 0.0,
-            output_name = :total_energy
-        )
-        energy_vec[iframe] = map_pairwise!((x, y, i, j, d2, total_energy) -> total_energy + f_perturbation(i, j, sqrt(d2)/10), system)
-    end
-    @. prob_rel_vec = exp(-(energy_vec)/k*T)
-    prob_vec = prob_rel_vec/sum(prob_rel_vec)
-    output = ReweightResults(prob_vec, prob_rel_vec, energy_vec)
-    return output
-end
 
 import Base.show
 import Statistics
@@ -328,11 +268,11 @@ function reweight(
             )
             for pk in keys(pert_input.perturbations)
                 for (δ_idx, δ) in enumerate(pert_input.perturbations[pk].scaling)
-                    map_pairwise!(
-                        (x, y, i, j, d2, output) -> energy_and_distances!(
-                            i, 
-                            j, 
-                            sqrt(d2), 
+                    pairwise!(
+                        (pair, output) -> energy_and_distances!(
+                            pair.i, 
+                            pair.j, 
+                            pair.d, 
                             pert_input.perturbations[pk].subgroup1, 
                             pert_input.perturbations[pk].subgroup2, 
                             pert_input.perturbations[pk].perturbation_function,
@@ -461,11 +401,11 @@ function reweight(
             )
             for pk in keys(pert_input.perturbations)
                 for (δ_idx, δ) in enumerate(pert_input.perturbations[pk].scaling)
-                    map_pairwise!(
-                        (x, y, i, j, d2, output) -> energy_and_distances!(
-                            i, 
-                            j, 
-                            sqrt(d2), 
+                    pairwise!(
+                        (pair, output) -> energy_and_distances!(
+                            pair.i, 
+                            pair.j, 
+                            pair.d, 
                             pert_input.perturbations[pk].subgroup1, 
                             pert_input.perturbations[pk].subgroup2, 
                             pert_input.perturbations[pk].perturbation_function,

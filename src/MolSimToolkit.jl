@@ -31,13 +31,8 @@ using LinearAlgebra: norm, cross, dot, diag
 using Reexport: @reexport
 using ProgressMeter: Progress, next!, @showprogress
 using Statistics: mean
-<<<<<<< HEAD
-using Printf: @sprintf
-using OrderedCollections
-=======
 using Printf: @sprintf, @printf
 using OrderedCollections
->>>>>>> e07766c306259d50b3c8ce27e0556547ef0ceb3c
 
 export wrap, wrap_to_first
 export distances
