@@ -12,7 +12,7 @@ struct ReweightResults{T<:Real}
     relative_probabilities::Vector{Vector{T}}
     energies::Vector{Vector{T}}
     distances::Vector{Int}
-    entropy_diff::Vector{T}
+    ESS::Vector{T}
     scaling::Vector{<:Real}
 end
 
@@ -207,10 +207,10 @@ function Base.show(io::IO, mime::MIME"text/plain", res::ReweightResults)
     Standard Deviations = $(Statistics.std.(res.energies)/sqrt(length(first(res.energies))))
 
     -------------------------------------------
-    ENTROPY LOSS DUE TO REWEIGHTING
+    EFFECTIVE SAMPLE SIZE (HIGHEST SCALING)
     -------------------------------------------
     
-    Entropy = $(res.entropy_diff)
+    ESS = $(res.ESS)
 
     """)
 end
@@ -229,9 +229,9 @@ function reweight(
     #Defining results
     raw_output = OrderedCollections.OrderedDict{Any, Vector{AbstractVector}}(k =>
         [
-            [[zeros(length(simulation))] for δ in pert_input.perturbations[k].scaling],
-            [[zeros(length(simulation))] for δ in pert_input.perturbations[k].scaling],
-            zeros(length(simulation)),
+            [zeros(length(simulation)) for δ in pert_input.perturbations[k].scaling],
+            [zeros(length(simulation)) for δ in pert_input.perturbations[k].scaling],
+            [zeros(length(simulation)) for δ in pert_input.perturbations[k].scaling],
             zeros(Int, length(simulation)),        
         ] 
         for k in keys(pert_input.perturbations)
@@ -239,12 +239,11 @@ function reweight(
 
     #Number of atoms per molecule
     n_molecules_gp1 = length(pert_input.group1) ÷ pert_input.number_atoms_group1
-    computed_energy = 0
 
     #Defining function if CellListMap option is activated
-    function energy_and_distances!(i,j,d, subgroup1, subgroup2, pert_func::Function, out::EnergyAndDistances)
+    function energy_and_distances!(i,j,d, subgroup1, subgroup2, pert_func::Function, out::EnergyAndDistances, δ::Real=1.0)
         if is_in(subgroup1, pert_input.group1[i]) && is_in(subgroup2, pert_input.group2[j])
-            out.energy += pert_func(d)
+            out.energy += pert_func(d, δ)
             if abs(out.energy) >= tol
                 out.distances += 1
             end
@@ -268,22 +267,27 @@ function reweight(
                 output_name = :energy_and_distances
             )
             for pk in keys(pert_input.perturbations)
-                map_pairwise!(
-                    (x, y, i, j, d2, output) -> energy_and_distances!(
-                        i, 
-                        j, 
-                        sqrt(d2), 
-                        pert_input.perturbations[pk].subgroup1, 
-                        pert_input.perturbations[pk].subgroup2, 
-                        pert_input.perturbations[pk].perturbation_function,
-                        output
-                    ),
-                    system
-                )
-                raw_output[pk][3][iframe] = system.energy_and_distances.energy
-                raw_output[pk][4][iframe] = system.energy_and_distances.distances
-                system.energy_and_distances.energy = 0.0
-                system.energy_and_distances.distances = 0
+                for (δ_idx, δ) in enumerate(pert_input.perturbations[pk].scaling)
+                    map_pairwise!(
+                        (x, y, i, j, d2, output) -> energy_and_distances!(
+                            i, 
+                            j, 
+                            sqrt(d2), 
+                            pert_input.perturbations[pk].subgroup1, 
+                            pert_input.perturbations[pk].subgroup2, 
+                            pert_input.perturbations[pk].perturbation_function,
+                            output,
+                            δ
+                        ),
+                        system
+                    )
+                    raw_output[pk][3][δ_idx][iframe] = system.energy_and_distances.energy
+                    if δ_idx == 1
+                        raw_output[pk][4][iframe] = system.energy_and_distances.distances
+                    end
+                    system.energy_and_distances.energy = 0.0
+                    system.energy_and_distances.distances = 0
+                end
             end
         else
             for mol_ind in 1:n_molecules_gp1
@@ -297,20 +301,26 @@ function reweight(
                     cutoff = cutoff
                 )
                 for pk in keys(pert_input.perturbations)
-                    for d_i in eachindex(gp_2_list)                    
-                        if gp_2_list[d_i].within_cutoff && is_in(pert_input.perturbations[pk].subgroup2, pert_input.group2[gp_2_list[d_i].i]) && is_in(pert_input.perturbations[pk].subgroup1, pert_input.group1[gp_2_list[d_i].j])
-                            computed_energy = pert_input.perturbations[pk].perturbation_function(gp_2_list[d_i].d)
-                            raw_output[pk][3][iframe] += computed_energy
-                            raw_output[pk][4][iframe] += abs(computed_energy) >= tol ? 1 : 0
+                    for (δ_idx, δ) in enumerate(pert_input.perturbations[pk].scaling)
+                        distance_count = 0
+                        for d_i in eachindex(gp_2_list)                    
+                            if gp_2_list[d_i].within_cutoff && is_in(pert_input.perturbations[pk].subgroup2, pert_input.group2[gp_2_list[d_i].i]) && is_in(pert_input.perturbations[pk].subgroup1, pert_input.group1[gp_2_list[d_i].j])
+                                computed_energy = pert_input.perturbations[pk].perturbation_function(gp_2_list[d_i].d, δ)
+                                raw_output[pk][3][δ_idx][iframe] += computed_energy
+                                if abs(computed_energy) >= tol
+                                    distance_count += 1
+                                end
+                            end
+                        end
+                        if δ_idx == 1
+                            raw_output[pk][4][iframe] += distance_count
                         end
                     end
-                    computed_energy = 0
                 end
             end
         end
     end
     for pk in keys(raw_output)
-        raw_output[pk][3] = [δ * raw_output[pk][3] for δ in pert_input.perturbations[pk].scaling]
         raw_output[pk][2] = [exp.(-raw_output[pk][3][δ]/(k*T)) for δ in eachindex(raw_output[pk][3])]
         raw_output[pk][1] = [raw_output[pk][2][δ]/sum(raw_output[pk][2][δ]) for δ in eachindex(raw_output[pk][2])]
     end
@@ -319,8 +329,8 @@ function reweight(
             raw_output[kys][1], 
             raw_output[kys][2],
             raw_output[kys][3],  
-            raw_output[kys][4],
-            [-k*(sum(raw_output[kys][1][δ] .* log.(raw_output[kys][1][δ])) - log(1/length(simulation))) for δ in eachindex(pert_input.perturbations[kys].scaling)],
+            Int.(raw_output[kys][4]),
+            [sum(raw_output[kys][1][end])^2/sum(raw_output[kys][1][end] .^ 2)],
             pert_input.perturbations[kys].scaling
         ) 
         for kys in keys(pert_input.perturbations)
@@ -336,7 +346,7 @@ function reweight(
     k::Real = 1.0, #Boltzmann constant
     T::Real = 1.0, #Temperature
     cutoff::Real = 12.0, #Cutoff of distances
-    tol::Real = 1.e-32 #Tolerance to consider a distance contribution
+    tol::Real = 1.e-16 #Tolerance to consider a distance contribution
 )
     #Case vector for min distances
     cases = OrderedCollections.OrderedDict{Any, Vector{<:Real}}(k => 
@@ -351,9 +361,9 @@ function reweight(
     #Defining results
     raw_output = OrderedCollections.OrderedDict{Any, Vector{AbstractVector}}(k =>
         [
-            [[zeros(length(simulation))] for δ in pert_input.perturbations[k].scaling],
-            [[zeros(length(simulation))] for δ in pert_input.perturbations[k].scaling],
-            zeros(length(simulation)),
+            [zeros(length(simulation)) for δ in pert_input.perturbations[k].scaling],
+            [zeros(length(simulation)) for δ in pert_input.perturbations[k].scaling],
+            [zeros(length(simulation)) for δ in pert_input.perturbations[k].scaling],
             zeros(length(simulation)),        
         ] 
         for k in keys(pert_input.perturbations)
@@ -361,18 +371,14 @@ function reweight(
 
     #Number of atoms per molecule
     n_molecules_gp1 = length(pert_input.group1) ÷ pert_input.number_atoms_group1
-    computed_energy = 0
-
-    #division factor for double counting
-    dvf = 1
 
     #Defining function if CellListMap option is activated
-    function energy_and_distances!(i,j,d, subgroup1, subgroup2, pert_func::Function, output::EnergyAndDistances)
+    function energy_and_distances!(i,j,d, subgroup1, subgroup2, pert_func::Function, output::EnergyAndDistances, δ::Real=1.0)
         gp1 = pert_input.group1
         mol1 = (i - 1) ÷ pert_input.number_atoms_group1 + 1
         mol2 = (j - 1) ÷ pert_input.number_atoms_group1 + 1
-        if (is_in(subgroup1, gp1[i]) && is_in(subgroup2, gp1[j]) && mol1 != mol2) || (is_in(subgroup1, gp1[j]) && is_in(subgroup2, gp1[i]) && mol1 != mol2)
-            output.energy += pert_func(d)
+        if mol1 != mol2 && ((is_in(subgroup1, gp1[i]) && is_in(subgroup2, gp1[j])) || (is_in(subgroup1, gp1[j]) && is_in(subgroup2, gp1[i])))
+            output.energy += pert_func(d, δ)
             if abs(output.energy) >= tol
                 output.distances += 1
             end
@@ -394,22 +400,27 @@ function reweight(
                 output_name = :energy_and_distances
             )
             for pk in keys(pert_input.perturbations)
-                map_pairwise!(
-                    (x, y, i, j, d2, output) -> energy_and_distances!(
-                        i, 
-                        j, 
-                        sqrt(d2), 
-                        pert_input.perturbations[pk].subgroup1, 
-                        pert_input.perturbations[pk].subgroup2, 
-                        pert_input.perturbations[pk].perturbation_function,
-                        output
-                    ),
-                    system
-                )
-                raw_output[pk][3][iframe] = system.energy_and_distances.energy
-                raw_output[pk][4][iframe] = system.energy_and_distances.distances
-                system.energy_and_distances.energy = 0.0
-                system.energy_and_distances.distances = 0
+                for (δ_idx, δ) in enumerate(pert_input.perturbations[pk].scaling)
+                    map_pairwise!(
+                        (x, y, i, j, d2, output) -> energy_and_distances!(
+                            i, 
+                            j, 
+                            sqrt(d2), 
+                            pert_input.perturbations[pk].subgroup1, 
+                            pert_input.perturbations[pk].subgroup2, 
+                            pert_input.perturbations[pk].perturbation_function,
+                            output,
+                            δ
+                        ),
+                        system
+                    )
+                    raw_output[pk][3][δ_idx][iframe] = system.energy_and_distances.energy
+                    if δ_idx == 1
+                        raw_output[pk][4][iframe] = system.energy_and_distances.distances
+                    end
+                    system.energy_and_distances.energy = 0.0
+                    system.energy_and_distances.distances = 0
+                end
             end
         else
             for mol_ind in 1:n_molecules_gp1
@@ -427,24 +438,27 @@ function reweight(
                 for pk in keys(pert_input.perturbations)
                     sg1 = pert_input.perturbations[pk].subgroup1
                     sg2 = pert_input.perturbations[pk].subgroup2
-                    for d_i in eachindex(gp_2_list)
-                        if gp_2_list[d_i].within_cutoff && is_in(collect(i_index:1:f_index), gp_2_list[d_i].i) == false && is_in(sg2, pert_input.group1[gp_2_list[d_i].i]) && is_in(sg1, pert_input.group1[gp_2_list[d_i].j])
-                            if cases[pk][1] == 1
-                                dvf = 2
+                    dvf_base = (cases[pk][1] == 1) ? 2 : 1
+                    for (δ_idx, δ) in enumerate(pert_input.perturbations[pk].scaling)
+                        distance_count = 0
+                        for d_i in eachindex(gp_2_list)
+                            if gp_2_list[d_i].within_cutoff && !(i_index <= gp_2_list[d_i].i <= f_index) && is_in(sg2, pert_input.group1[gp_2_list[d_i].i]) && is_in(sg1, pert_input.group1[gp_2_list[d_i].j])
+                                computed_energy = pert_input.perturbations[pk].perturbation_function(gp_2_list[d_i].d, δ)
+                                raw_output[pk][3][δ_idx][iframe] += computed_energy / dvf_base
+                                if abs(computed_energy) >= tol
+                                    distance_count += 1
+                                end
                             end
-                            computed_energy = pert_input.perturbations[pk].perturbation_function(gp_2_list[d_i].d)
-                            raw_output[pk][3][iframe] += computed_energy / dvf
-                            raw_output[pk][4][iframe] += abs(computed_energy) >= tol ? 1 / dvf : 0
+                        end
+                        if δ_idx == 1
+                            raw_output[pk][4][iframe] += distance_count / dvf_base
                         end
                     end
-                    computed_energy = 0
-                    dvf = 1
                 end
             end
         end
     end
     for pk in keys(raw_output)
-        raw_output[pk][3] = [δ * raw_output[pk][3] for δ in pert_input.perturbations[pk].scaling]
         raw_output[pk][2] = [exp.(-raw_output[pk][3][δ]/(k*T)) for δ in eachindex(raw_output[pk][3])]
         raw_output[pk][1] = [raw_output[pk][2][δ]/sum(raw_output[pk][2][δ]) for δ in eachindex(raw_output[pk][2])]
     end
@@ -454,7 +468,7 @@ function reweight(
             raw_output[kys][2],
             raw_output[kys][3],  
             Int.(raw_output[kys][4]),
-            [-k*(sum(raw_output[kys][1][δ] .* log.(raw_output[kys][1][δ])) - log(1/length(simulation))) for δ in eachindex(pert_input.perturbations[kys].scaling)],
+            [sum(raw_output[kys][1][end])^2/sum(raw_output[kys][1][end] .^ 2)],
             pert_input.perturbations[kys].scaling
         ) 
         for kys in keys(pert_input.perturbations)

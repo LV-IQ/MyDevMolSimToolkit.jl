@@ -33,7 +33,7 @@ end #Module Reweighting
 
     c2 = at -> at.residue == 4981 && at.name in ["H21", "H22"]
 
-    dist(r) = r
+    dist(r, δ) = r*δ
 
     Dict = OrderedCollections.OrderedDict(1 => Perturbation(simulation.atoms, c1, c2, dist, [1]))
 
@@ -90,7 +90,7 @@ end
 
     c2 = at -> at.residue == 4981 && at.name in ["H21", "H22"]
 
-    dist(r) = r
+    dist(r, δ) = r*δ
 
     Dict = OrderedCollections.OrderedDict(1 => Perturbation(simulation.atoms, c1, c2, dist, [-2, -1, 0, 1, 2]))
 
@@ -132,7 +132,7 @@ end
 
     c12 = at -> at = true
 
-    dist(r) = r
+    dist(r, δ) = r*δ
 
     Dict = OrderedCollections.OrderedDict(
         "a" => Perturbation(simulation.atoms, c1, c2, dist, [-1, 0, 1]), 
@@ -199,7 +199,7 @@ end
 
     c12 = at -> at = true
 
-    dist(r) = r
+    dist(r, δ) = r*δ
 
     Dict = OrderedCollections.OrderedDict(
         "a" => Perturbation(simulation.atoms, c1, c2, dist, [1]), 
@@ -262,7 +262,7 @@ end
 
     c12 = at -> at.name in ["OW"]
 
-    dist(r) = r
+    dist(r, δ) = r*δ
 
     Dict = OrderedCollections.OrderedDict(
         "a" => Perturbation(simulation.atoms, c1, c2, dist,[1]; one_gp=true), 
@@ -356,7 +356,7 @@ end
 
     c12 = at -> at.name in ["OW"]
 
-    dist(r) = r
+    dist(r, δ) = r*δ
 
     Dict = OrderedCollections.OrderedDict(
         "a" => Perturbation(simulation.atoms, c1, c2, dist, [1]; one_gp=true), 
