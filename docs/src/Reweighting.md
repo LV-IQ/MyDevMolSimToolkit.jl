@@ -35,9 +35,9 @@ Simulation
     Number of frames in range: 10
     Current frame: nothing
 
-julia> i1 = PDBTools.selindex(atoms(simulation), "resname TFE and name O")
+julia> i1 = PDBTools.selindex(get_atoms(simulation), "resname TFE and name O")
 
-julia> i2 = PDBTools.selindex(atoms(simulation), "protein and name O")
+julia> i2 = PDBTools.selindex(get_atoms(simulation), "protein and name O")
 ```
 In the picture below, it is shown the interaction which will be perturbed in this system:
 

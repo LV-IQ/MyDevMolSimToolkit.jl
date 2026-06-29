@@ -5,7 +5,7 @@ CollapsedDocStrings = true
 
 Performs an analysis of the convergence of some property (usually the mean) in a time-series. 
 
-Computes the block average of time-dependent data, to compute the standard error of the mean and, to detect sampling problems. A didactical explanation of block averaging is available [here](http://sachinashanbhag.blogspot.com/2013/08/block-averaging-estimating-uncertainty.html).  
+Computes the block average of time-dependent data, to compute the standard error of the mean and, to detect sampling problems. A didactic explanation of block averaging is available [here](http://sachinashanbhag.blogspot.com/2013/08/block-averaging-estimating-uncertainty.html).  
 
 The package also outputs the autocorrelation function of the property, and the characteristic time of the correlation decay. 
 
@@ -20,6 +20,8 @@ where $$c(t)$$ is the autocorrelation function of the data and $$M$$ is the time
 N_{\textrm{eff}} = \frac{N}{\tau_{INT}}
 ```
 This allows the estimation of the effective standard error of the mean, as $$SD(data)/\sqrt{N_{\textrm{eff}}}$$.
+
+For additional information, see [Vehtari et. al](https://doi.org/10.1214/20-BA1221) - page 675.
 
 ## Data that is not time-correlated
 
@@ -58,7 +60,7 @@ Several characteristics of the output indicate the poor convergence of the serie
 
 ### Properly sampled data
 
-If we increase the sampling by generating longer simulation with a greater variance between sucessive data points, the convergence analysis produces:
+If we increase the sampling by generating longer simulation with a greater variance between successive data points, the convergence analysis produces:
 ```@example block_averages
 x = BlockAverages.test_data(10^5; variance=0.1);
 b = block_average(x)
@@ -97,6 +99,23 @@ histogram(d)
 ```
 
 The optimal block size should be that for which the distribution is closer to a gaussian.
+
+## Support for Unitful quantities
+
+These functions support `Unitful.jl` quantities both for the response vector and for the `dt` parameter, which defines the time interval between samples. For example:
+
+```@example block_averages
+using Unitful
+xu = x .* u"Å" # assign units to the values of x
+b = block_average(xu; dt=0.0025u"ns") # provide the time delay between data points
+plot(b)
+```
+
+The distribution of the mean will also propagate the units correctly:
+
+```@example block_averages
+histogram(block_distribution(xu; block_size=2_500))
+```
 
 ## Reference functions
 

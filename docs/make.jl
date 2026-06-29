@@ -1,14 +1,11 @@
-import Pkg
-Pkg.add("Documenter")
 using Documenter
 using Plots
-push!(LOAD_PATH, "../")
-push!(LOAD_PATH, "../src/")
 using MolSimToolkit
 using MolSimToolkit.PackmolInputCreator
 using MolSimToolkitShared
 ENV["LINES"] = 10
 ENV["COLUMNS"] = 120
+ENV["GKSwstype"] = "nul"
 makedocs(
     modules = [
         MolSimToolkit, MolSimToolkitShared,
@@ -18,6 +15,7 @@ makedocs(
     doctest=false,
     pages=[
         "Home" => "index.md",
+        "Simulation" => "simulation.md",
         "Structural analyses" => Any[
             "Hydrogen bonds" => "hydrogen_bonds.md",
             "Distances and misc." => "Structural_properties.md",
@@ -38,11 +36,11 @@ makedocs(
         ],
         "System setup" => "system_setup.md",
         "Plotting style" => "plotting_style.md",
-        "Developer zone" => "Developer.md",
+#        "Developer zone" => "Developer.md",
         "Experimental" => Any[
             "Simulation Reweighting" => "Reweighting.md",
             "Cluster submission management" => "Coaraci.md",
-            "m-value calculator" => "mvalues.md",
+            "Transfer free energies" => "mvalues.md",
         ], 
     ],
 )

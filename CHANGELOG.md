@@ -10,8 +10,61 @@ MolSimToolkit.jl Changelog
 [badge-fix]: https://img.shields.io/badge/Fix-purple.svg
 [badge-info]: https://img.shields.io/badge/Info-gray.svg
 
-Version 1.31.3-DEV
+Version 2.0.4-DEV
 --------------
+
+Version 2.0.3
+--------------
+- ![FEATURE][badge-experimental] Add `transfer_free_energy_frames` function to compute the transfer free energy throughout a simulation, frame by frame.
+- ![FIX][badge-fix] fix the protein reconstruction in `transfer_free_energy` when the protein is a non-contiguous subset of atoms.
+- ![INFO][badge-info] Defaults to `protein and not element H` in the selection of atoms of transfer free energy calculations. 
+- ![INFO][badge-info] Simplify `mvalue` example code.
+
+Version 2.0.2
+--------------
+- ![FEATURE][badge-experimental] Add `transfer_free_energy` function to compute the average transfer free energy throughout a simulation.
+
+Version 2.0.1
+--------------
+- ![INFO][badge-info] Requires CellListMap 0.10.0 (and thus PDBTools 3.25.2)
+
+Version 2.0.0
+--------------
+- ![FEATURE][badge-feature] `goto_frame!(sim, iframe)` function goes to the desired frame and returns the `Simulation` object.
+- ![BREAKING][badge-breaking] `atoms` function was removed in favor of `get_atoms`. Use `get_atoms(goto_frame!(sim, 5))` for example to retrieve the vector of atoms with positions of frame 5.
+- ![BREAKING][badge-breaking] `get_frame` was renamed `get_frame!` and returns a `Frame` object, not anymore a vector of atoms. Use `get_atoms` instead.
+- ![BREAKING][badge-breaking] PDBTools 3.21.0 renames `coor` to `positions`/`position` — all MolSimToolkit functions and documentation now use the new names.
+- ![BREAKING][badge-breaking] `first_frame!` returns the `Frame` object, not a `Simulation` object, as before. It mutates, as before, the `Simulation` object, to place it in the first frame.
+- ![BREAKING][badge-breaking] The `frame_index` of a simulation is always an integer now (`nothing` is not possible anymore), corresponding to the frame in the `simulation.frame` buffer.
+- ![BREAKING][badge-breaking] `FramePositions` object was removed, and the positions are stored in the `Frame` object and returned as a `Vector{Point3D}`.
+- ![ENHANCEMEMENT][badge-enhancement] fix possible concurrency of Chemfiles C-pointers of coordinates, by storing positions and unitcell copies of data in the `Frame` object.
+- ![INFO][badge-info] The internal representation of frames and trajectories is done by new `MolSimToolkit` structs `Frame` and `Trajectory`. `Chemfiles` objects are not exposed anymore to the user. 
+- ![INFO][badge-info] Import `get_atoms` and `positions` from `MolSimToolkitShared`. 
+- ![INFO][badge-info] Require PDBTools v3.21.0.
+
+Version 1.33.0
+--------------
+- ![FEATURE][badge-feature] Introduce the option to compute the RMSD of a structure, given the alignment of other structure (or parts of); i. e. the `rmsd_of` option of `rmsd`. 
+- ![FEATURE][badge-feature] Support string selections in `rmsd` and `rmsd_matrix` functions.
+- ![ENHANCEMENT][badge-enhancement] Reconstruct polymer and complex structure before computing rmsds, to avoid issues with broken molecule coordinates through PBCs.
+
+Version 1.32.3
+--------------
+- ![FIX][badge-fix] fix units of autocorrelation plot in block average plotting.
+- ![INFO][badge-info]: add reference to the section about computing the number of effective samples.
+- ![INFO][badge-info]: add space on top of title of block average plot to improve figure, adjust the number of digits of plotted mean according to effective standard error.
+
+Version 1.32.2
+--------------
+- ![FIX][badge-fix] fix plot of t95 data in block-average plotting extension.
+
+Version 1.32.1
+--------------
+- ![FIX][badge-fix] all BlockAverage plots are now printed with correct time units, and the use of fractional time units (fractional delays between samples) is properly handled.
+
+Version 1.32.0
+--------------
+- ![FEATURE][badge-feature] Support units in data values of block-average functions, and add the `dt` keyword parameter to define the time-step, also supporting units. 
 
 Version 1.31.2
 --------------
@@ -47,7 +100,7 @@ Version 1.29.14
 Version 1.29.13
 ---------------
 - ![FEATURE][badge-experimental] Support for PBCs in `delta_sasa_per_residue` with the `unitcell` keyword.
-- ![FEATURE][badge-experimental] Changed interface of `mvalue` functions: the funcions now receive vectors of atoms, and thus the keyword `pdbname`  was renamed to `atoms`. 
+- ![FEATURE][badge-experimental] Changed interface of `mvalue` functions: the functions now receive vectors of atoms, and thus the keyword `pdbname`  was renamed to `atoms`. 
 
 Version 1.29.12
 ---------------
@@ -87,7 +140,7 @@ Version 1.29.5
 
 Version 1.29.4
 -------------
-- ![FEATURE][badge-experimental] Support for the AutoBolen model of mvalue calcuation.
+- ![FEATURE][badge-experimental] Support for the AutoBolen model of mvalue calculation.
 - ![FEATURE][badge-experimental] Code support for other cosolvents than urea in the calculation of m-values.
 - ![INFO][badge-info] removed `atomic_mass` overload (with piracy) of PDBTools function.
 

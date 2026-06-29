@@ -1,7 +1,10 @@
 using LaTeXStrings
 import Plots: histogram, plot
-using Plots: plot!, histogram!, hline!, annotate!, text, @layout
+using Plots: plot!, histogram!, hline!, @layout
 using Plots.Measures: cm
+
+_round(x::Real; kargs...) = round(x; kargs...)
+_round(x; kargs...) = round(typeof(x), x; kargs...)
 
 """
     histogram(md::BlockDistribution; bins=:auto)
@@ -33,7 +36,7 @@ function histogram(md::BlockDistribution; bins=:auto)
     )
     histogram!(p, md.block_mean, bins=bins, normalize=:pdf, color=:gray, label=:none)
     σ = md.std_of_the_mean^2
-    plot!(p, x -> (1 / sqrt(π * σ)) * exp(-(x - md.mean)^2 / σ), linewidth=2, color=:black, label=:none)
+    plot!(p, x -> (1 / sqrt(π * σ)) * exp(-(oneunit(md.mean) * x - md.mean)^2 / σ), linewidth=2, color=:black, label=:none)
     return p
 end
 
@@ -69,15 +72,18 @@ function plot(
     xscale=:identity,
     title=""
 )
+    tu = data.dt / oneunit(data.dt)
     l = @layout [ a{0.2h} ; b c ; d e]
     p = plot(layout=l)
     plot!(subplot=1, 
+        collect(1:length(data.x)) * data.dt,
         data.x,
-        xlabel="step",
+        xlabel="time",
         ylabel="value",
         label="",
         color=:black,
-        title=title,
+        title="\n$title",
+        topmargin=0.3cm,
     )
     hline!(
         [data.xmean],
@@ -87,26 +93,22 @@ function plot(
         label=:none,
         subplot=2,
     )
+    mdigits = round(Int, abs(log10(data.xmean_stderr_neff / oneunit(data.xmean_stderr_neff))), RoundUp) + 1
     plot!(
-        data.blocksize, data.xmean_maxerr,
+        data.dt * data.blocksize, data.xmean_maxerr,
         ylabel="worst block value",
-        xlabel=L"\textrm{block~size}",
+        xlabel="block size",
         label=nothing,
         linewidth=2,
         marker=:circle,
         color=:black,
         xscale=xscale,
-        subplot=2
-    )
-    annotate!(
-        maximum(data.blocksize) - 0.1 * maximum(data.blocksize),
-        max(data.xmean_maxerr[end], maximum(data.xmean_maxerr)) - 0.1 * (maximum(data.xmean_maxerr) - minimum(data.xmean_maxerr)),
-        text("mean = $(round(data.xmean, digits=2))", "Computer Modern", 12, :right),
         subplot=2,
+        legendtitle="mean = $(_round(data.xmean, digits=mdigits))",
     )
-    plot!(data.blocksize, data.xmean_stderr,
+    plot!(data.dt * data.blocksize, data.xmean_stderr,
         ylabel=L"SD / \sqrt{N_{blocks}}",
-        xlabel=L"\textrm{block~size}",
+        xlabel="block size",
         label=nothing,
         linewidth=2,
         marker=:circle,
@@ -116,7 +118,7 @@ function plot(
     )
     # Auto correlation function
     plot!(
-        data.lags,
+        data.lags * data.dt,
         data.autocor,
         ylabel=L"c(\Delta t)",
         xlabel=L"\Delta t",
@@ -126,22 +128,20 @@ function plot(
         subplot=4
     )
     t95 = 1.96 / sqrt(length(data.x))
-    hline!([t95], subplot=4, ls=:dash, label="", color=:grey)
-    exp_fit = exp.(-inv(data.tau) .* data.lags)
+    i95 = findfirst(i -> data.autocor[i] <= t95, eachindex(data.lags))
+    isnothing(i95) && (i95 = length(data.lags))
+    i95 -= 1
+    hline!([data.autocor[i95]], subplot=4, ls=:dash, label="", color=:grey)
+    exp_fit = exp.(-inv((data.tau/oneunit(data.tau))) .* tu .* data.lags )
     plot!(
-        data.lags,
+        data.lags * data.dt,
         exp_fit,
         label=nothing,
         linewidth=2,
         color=:black,
         alpha=0.5,
         subplot=4,
-    )
-    annotate!(
-        data.lags[end] - 0.2 * data.lags[end],
-        0.8 * max(maximum(data.autocor), maximum(exp_fit)),
-        text("τ = $(round(data.tau, digits=2))", "Computer Modern", 12, :right),
-        subplot=4,
+        legendtitle="τ = $(_round(data.tau; digits=2))",
     )
     plot!(
         p,
@@ -150,8 +150,8 @@ function plot(
         fontfamily="Computer Modern",
         xlims=xlims,
         ylims=ylims,
-        leftmargin=0.1cm,
-        rightmargin=0.1cm,
+        leftmargin=0.3cm,
+        rightmargin=0.3cm,
     )
     plot!(subplot=5,
         xticks=nothing,
@@ -163,20 +163,20 @@ function plot(
         legendtitle="Summary",
         legendfontsize=8,
     )
-    i95 = findfirst(i -> data.autocor[i] <= t95, eachindex(data.lags))
-    isnothing(i95) && (i95 = length(data.lags))
-    i95 -= 1
-    plot!((1,1), subplot=5, lc=:white, label="\n"*latexstring("\\Delta t (0.95) = $(data.lags[i95])"))
-    plot!((1,1), subplot=5, lc=:white, label=latexstring("\\textrm{Integrated-}\\tau  = $(round(data.tau_int; digits=4))"))
-    plot!((1,1), subplot=5, lc=:white, label=latexstring("N = $(length(data.x))"))
-    plot!((1,1), subplot=5, lc=:white, label=latexstring("N_{eff}  = $(round(Int, data.n_effective))"))
-    plot!((1,1), subplot=5, lc=:white, label=latexstring("SEM(N_{eff}) = $(round(data.xmean_stderr_neff; digits=4))"))
+    plot!((1,1), subplot=5, lc=:white, label="\n"*latexstring("\\textrm{\\Delta t (0.95) = $(_round(data.lags[i95] * data.dt; digits=4))}"))
+    plot!((1,1), subplot=5, lc=:white, label=latexstring("\\textrm{Integrated-\\tau = $(_round(data.tau_int; digits=4))}~~~~"))
+    plot!((1,1), subplot=5, lc=:white, label=latexstring("\\textrm{N = $(length(data.x))}"))
+    plot!((1,1), subplot=5, lc=:white, label=latexstring("\\textrm{N_{eff}  = $(round(Int, data.n_effective))}"))
+    plot!((1,1), subplot=5, lc=:white, label=latexstring("\\textrm{SEM(N_{eff}) = $(_round(data.xmean_stderr_neff; digits=4))}"))
     return p
 end
 
 @testitem "blockaverages plotting" begin
-    using MolSimToolkit, Plots
+    using MolSimToolkit, Plots, Unitful
+    ENV["GKSwstype"] = "nul"
+
     x = BlockAverages.test_data(10^6);
+
     md = block_distribution(x; block_size=10^5);
     tempfile = tempname()*".png"
     plt = histogram(md)
@@ -186,4 +186,16 @@ end
     plt = plot(b)
     savefig(plt, tempfile)
     @test isfile(tempfile)
+
+    x = x .* 1u"cm"
+    md = block_distribution(x; block_size=10^5);
+    tempfile = tempname()*".png"
+    plt = histogram(md)
+    savefig(plt, tempfile)
+    @test isfile(tempfile)
+    b = block_average(x, lags=0:100:10^5, dt=1u"s")
+    plt = plot(b)
+    savefig(plt, tempfile)
+    @test isfile(tempfile)
+
 end
